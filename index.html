@@ -720,41 +720,95 @@
             showLoader(true); await callApi('update', 'annual_plans', { doc_id: docId, status: newStatus }); loadAllData();
         }
 
-        // --- MERIT ---
+// --- MERIT (VERSI DIKEMAS KINI) ---
 async function submitMerit(e) {
     e.preventDefault();
-    showLoader(true);
     
     // Ambil rujukan elemen dropdown murid
     const studentSelect = document.getElementById('merit-student');
+    
+    // PENGESAHAN KESELAMATAN: Jika guru tidak pilih murid atau senarai kosong
+    if (!studentSelect || studentSelect.selectedIndex === -1 || studentSelect.value === "") {
+        alert("Sila pilih nama murid terlebih dahulu!");
+        return;
+    }
+    
+    showLoader(true);
+    
     // Ambil teks (nama murid) daripada pilihan yang dipilih
     const studentName = studentSelect.options[studentSelect.selectedIndex].text;
 
+    // Hantar data ke Firestore melalui API
     await callApi('create', 'records', {
+        folder: 'Merit', // Ditambah supaya data merit tidak bercampur dengan Laporan Aktiviti
         student_id: studentSelect.value,
-        names: studentName, // Tambah baris ini untuk simpan nama murid
+        names: studentName, 
         title: document.getElementById('merit-title').value,
         unit: document.getElementById('merit-unit').value,
         description: document.getElementById('merit-desc').value,
-        venue: document.getElementById('merit-venue').value
+        venue: document.getElementById('merit-venue').value,
+        date: new Date().toISOString().split('T')[0] // Menambah tarikh merit dimasukkan
     });
+    
+    // Set semula borang selepas simpan
+    document.getElementById('merit-title').value = '';
+    document.getElementById('merit-desc').value = '';
+    document.getElementById('merit-venue').value = '';
     
     loadAllData();
 }
-        function renderMerit() {
-            let data = globalData.records;
-            if(currentUser.role !== 'admin') data = data.filter(r => currentUser.myUnits.includes(r.unit));
-            document.getElementById('merit-table-body').innerHTML = data.map(r => `<tr class="border-b"><td class="p-3">${r.names}</td><td class="p-3">${r.title}</td><td class="p-3"><span class="bg-yellow-100 text-yellow-800 px-2 rounded text-xs">${r.description}</span></td><td class="p-3">${r.venue}</td><td class="p-3 text-center"><button onclick="deleteData('records','${r.doc_id}')" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button></td></tr>`).join('');
-            
-            const sel = document.getElementById('merit-student'); sel.innerHTML = '<option value="">Pilih Murid...</option>';
-            let students = globalData.students; if(currentUser.role !== 'admin') students = students.filter(s => currentUser.myUnits.includes(s.unit));
-            students.forEach(s => { const opt = document.createElement('option'); opt.value = s.doc_id; opt.innerText = s.name; sel.appendChild(opt); });
-            
-            const selUnit = document.getElementById('merit-unit'); selUnit.innerHTML = '<option value="">Pilih Unit...</option>';
-            const units = currentUser.role === 'admin' ? [...new Set(globalData.students.map(s=>s.unit))].sort() : currentUser.myUnits;
-            units.forEach(u => { const opt = document.createElement('option'); opt.value = u; opt.innerText = u; selUnit.appendChild(opt); });
-        }
 
+function renderMerit() {
+    let data = globalData.records || [];
+    
+    // PENAPISAN: Ambil data yang mempunyai folder 'Merit' SAHAJA supaya tidak bercampur dengan Laporan Aktiviti
+    data = data.filter(r => r.folder === 'Merit');
+    
+    if(currentUser.role !== 'admin') data = data.filter(r => currentUser.myUnits.includes(r.unit));
+    
+    // Paparkan ke dalam jadual
+    document.getElementById('merit-table-body').innerHTML = data.map(r => `
+        <tr class="border-b">
+            <td class="p-3">${r.names || 'Tiada Nama'}</td>
+            <td class="p-3">${r.title}</td>
+            <td class="p-3"><span class="bg-yellow-100 text-yellow-800 px-2 rounded text-xs">${r.description}</span></td>
+            <td class="p-3">${r.venue}</td>
+            <td class="p-3 text-center">
+                <button onclick="deleteData('records','${r.doc_id}')" class="text-red-400 hover:text-red-600">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    // MEMBINA DROPDOWN MURID
+    const sel = document.getElementById('merit-student'); 
+    sel.innerHTML = '<option value="">Pilih Murid...</option>';
+    
+    let students = globalData.students || []; 
+    
+    // NOTA: Tapisan unit dibuang khas untuk merit supaya Guru Memanah boleh pilih murid PBSM/unit lain
+    // Jika anda mahu mengekalkan sekatan unit, aktifkan semula baris di bawah ini:
+    // if(currentUser.role !== 'admin') students = students.filter(s => currentUser.myUnits.includes(s.unit));
+    
+    students.forEach(s => { 
+        const opt = document.createElement('option'); 
+        opt.value = s.doc_id; 
+        opt.innerText = `${s.name} (${s.unit})`; // Memaparkan nama sekali dengan unit murid
+        sel.appendChild(opt); 
+    });
+    
+    // MEMBINA DROPDOWN UNIT
+    const selUnit = document.getElementById('merit-unit'); 
+    selUnit.innerHTML = '<option value="">Pilih Unit...</option>';
+    const units = currentUser.role === 'admin' ? [...new Set(globalData.students.map(s=>s.unit))].sort() : currentUser.myUnits;
+    units.forEach(u => { 
+        const opt = document.createElement('option'); 
+        opt.value = u; 
+        opt.innerText = u; 
+        selUnit.appendChild(opt); 
+    });
+}
 // --- REPORTS ---
         // --- 1. Fungsi Buka Modal (CREATE NEW) ---
         function openReportModal() { 
