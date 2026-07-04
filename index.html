@@ -488,16 +488,38 @@
 
 async function callApi(action, collection, data = {}) {
             try {
+                // KEMBALIKAN KEPADA ASAL: Code.gs perlukan data ditukar ke teks (stringify)
+                const payload = {
+                    action: action,
+                    collection: collection,
+                    data: JSON.stringify(data) 
+                };
+
                 const response = await fetch(WEB_APP_URL, {
                     method: 'POST', 
                     headers: {
                         'Content-Type': 'text/plain;charset=utf-8'
                     },
-                    // DIBAIKI: Hantar objek 'data' secara terus, jangan ditukar ke string dua kali!
-                    body: JSON.stringify({ action, collection, data: data }) 
+                    body: JSON.stringify(payload)
                 });
                 
-                const result = await response.json();
+                // BACA SEBAGAI TEKS DAHULU UNTUK MENGELAKKAN SISTEM TERCEKIK
+                const textResponse = await response.text();
+                
+                // Jika Google hantar halaman web HTML (ralat kebenaran)
+                if (textResponse.startsWith("<!DOCTYPE") || textResponse.startsWith("<html")) {
+                    console.error("Google memulangkan halaman HTML:", textResponse);
+                    throw new Error("Sistem dihalang oleh Google. Sila pastikan 'Who has access' disetkan kepada 'Anyone'.");
+                }
+                
+                // Cuba tukar teks kepada data objek
+                let result;
+                try {
+                    result = JSON.parse(textResponse);
+                } catch (e) {
+                    console.error("Respons dari Google tidak dapat dibaca:", textResponse);
+                    throw new Error("Ralat pelayan: Format data dari Google Sheets salah.");
+                }
                 
                 if (result.status === "error") {
                     throw new Error(result.message || "Pangkalan data menolak permintaan.");
@@ -506,7 +528,7 @@ async function callApi(action, collection, data = {}) {
                 return result;
                 
             } catch (error) {
-                console.error("Ralat Sistem:", error);
+                console.error(`Ralat pada API (${action} -> ${collection}):`, error);
                 throw error; 
             }
         }
