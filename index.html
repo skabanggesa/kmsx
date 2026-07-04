@@ -590,7 +590,7 @@
                 globalData.users = cleanFirestoreData(results[5].data || []);
 
                 updateDashboard();
-                showPage('dashboard');
+                renderMerit();
             } catch (e) { console.error(e); alert("Ralat data."); }
             showLoader(false);
         }
