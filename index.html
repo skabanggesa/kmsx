@@ -490,16 +490,15 @@ async function callApi(action, collection, data = {}) {
             try {
                 const response = await fetch(WEB_APP_URL, {
                     method: 'POST', 
-                    // INI PENYELESAIAN CORS: "Menyamar" sebagai teks biasa
                     headers: {
                         'Content-Type': 'text/plain;charset=utf-8'
                     },
-                    body: JSON.stringify({ action, collection, data: JSON.stringify(data) })
+                    // DIBAIKI: Hantar objek 'data' secara terus, jangan ditukar ke string dua kali!
+                    body: JSON.stringify({ action, collection, data: data }) 
                 });
                 
                 const result = await response.json();
                 
-                // Pastikan ralat dari Google Sheets benar-benar dikesan
                 if (result.status === "error") {
                     throw new Error(result.message || "Pangkalan data menolak permintaan.");
                 }
@@ -507,9 +506,7 @@ async function callApi(action, collection, data = {}) {
                 return result;
                 
             } catch (error) {
-                // Keluarkan ralat yang sebenar (bukan sekadar "Ralat internet")
                 console.error("Ralat Sistem:", error);
-                // Wajib 'throw' supaya fungsi submitMerit terus terhenti!
                 throw error; 
             }
         }
