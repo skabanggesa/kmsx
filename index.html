@@ -748,22 +748,22 @@
             
             showLoader(true);
             
-            try {
+try {
                 // 2. HANTAR DATA KE GOOGLE SHEETS
-                await callApi('create', 'records', {
+                // Pastikan guna 'write', bukan 'create'
+                await callApi('write', 'records', {
                     folder: 'Merit', 
-                    student_id: studentSelect.value, 
-                    level: levelSelect.value, // Data Peringkat Penyertaan
+                    student_id: document.getElementById('merit-student').value, 
                     title: document.getElementById('merit-title').value,
                     unit: document.getElementById('merit-unit').value, 
-                    description: document.getElementById('merit-desc').value,
-                    venue: document.getElementById('merit-venue').value
+                    description: document.getElementById('merit-desc').value, // Johan/Penyertaan dll
+                    venue: document.getElementById('merit-venue').value // Sekolah/Daerah dll
                 });
                 
                 alert("Data merit berjaya disimpan ke pangkalan data (Google Sheets)!");
                 
-                // Kosongkan form selepas berjaya
-                const form = document.getElementById('merit-form');
+                // Kosongkan form selepas berjaya (pastikan ID form anda betul)
+                const form = document.getElementById('merit-form'); // Pastikan tag <form> ada id="merit-form"
                 if(form) form.reset();
                 
                 await loadAllData();
@@ -772,7 +772,7 @@
                 console.error("Ralat Google Sheets:", error);
                 alert("Sistem menolak kemasukan data: " + error.message);
             } finally {
-                showLoader(false);
+                // showLoader(false); // Pastikan fungsi showLoader ini wujud
             }
         }
 
