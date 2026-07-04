@@ -735,94 +735,108 @@ async function submitMerit(e) {
     showLoader(true);
     
     try {
-        // Ambil nama murid dengan selamat
-        const studentName = studentSelect.options[studentSelect.selectedIndex].text;
-
-        // 2. HANTAR DATA KE FIRESTORE
-        // Menyimpan medan 'folder' adalah trik terbaik jika collection 'records' dikongsi bersama laporan lain
+        // 2. HANTAR DATA KE GOOGLE SHEETS
         await callApi('create', 'records', {
             folder: 'Merit', 
-            student_id: studentSelect.value,
-            names: studentName, 
+            student_id: studentSelect.value, // Menyimpan ID murid (doc_id dari sheet students)
             title: document.getElementById('merit-title').value,
-            unit: document.getElementById('merit-unit').value,
+            unit: document.getElementById('merit-unit').value, // Menyimpan unit spesifik murid
             description: document.getElementById('merit-desc').value,
             venue: document.getElementById('merit-venue').value
         });
         
-        alert("Data merit berjaya disimpan ke Firestore!");
+        alert("Data merit berjaya disimpan ke pangkalan data (Google Sheets)!");
         
         // Kosongkan form selepas berjaya
         document.getElementById('merit-title').value = '';
         document.getElementById('merit-desc').value = '';
         document.getElementById('merit-venue').value = '';
         
-        // Muat semula data global
+        // Muat semula data global agar tabel merit langsung diperbarui
         await loadAllData();
         
     } catch (error) {
-        // Memapar ralat jika Firestore menolak (Contoh: Masalah Firebase Security Rules)
-        console.error("Ralat Firestore:", error);
-        alert("Firestore menolak kemasukan data: " + error.message);
+        // Memapar ralat jika Google Sheets/Apps Script menolak
+        console.error("Ralat Google Sheets:", error);
+        alert("Sistem menolak kemasukan data: " + error.message);
     } finally {
         showLoader(false);
     }
 }
-
-// --- FUNGSI RENDER MERIT ---
+// --- FUNGSI RENDER MERIT (DIKEMAS KINI DENGAN VLOOKUP NAMA) ---
 function renderMerit() {
     let data = globalData.records || [];
     
-    // Tapis supaya data Laporan Aktiviti lain tidak bercampur ke jadual merit (mengelakkan 'undefined')
+    // Tapis supaya data Laporan Aktiviti lain tidak bercampur ke jadual merit
     if (data.length > 0 && data[0].hasOwnProperty('folder')) {
         data = data.filter(r => r.folder === 'Merit');
     }
     
+    // Tapis mengikut unit portfolio guru (Jika nak semua guru nampak semua merit, letak // di depan baris ini)
     if(currentUser.role !== 'admin') data = data.filter(r => currentUser.myUnits.includes(r.unit));
     
     // Papar data ke jadual
-    document.getElementById('merit-table-body').innerHTML = data.map(r => `
-        <tr class="border-b">
-            <td class="p-3">${r.names || 'Tiada Nama'}</td>
-            <td class="p-3">${r.title}</td>
-            <td class="p-3"><span class="bg-yellow-100 text-yellow-800 px-2 rounded text-xs">${r.description}</span></td>
-            <td class="p-3">${r.venue}</td>
-            <td class="p-3 text-center">
-                <button onclick="deleteData('records','${r.doc_id}')" class="text-red-400 hover:text-red-600">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
+    const tableBody = document.getElementById('merit-table-body');
+    if (tableBody) {
+        tableBody.innerHTML = data.map(r => {
+            
+            // ========================================================
+            // FUNGSI "VLOOKUP" JAVASCRIPT: CARI NAMA SEBENAR MURID
+            // ========================================================
+            // Padankan ID murid yang disimpan dalam rekod dengan s.doc_id (ID murid dari Google Sheet)
+            // *Nota: 'r.student_id' merujuk kepada ID murid yang anda simpan sewaktu submitMerit
+            const padananMurid = (globalData.students || []).find(s => 
+                String(s.doc_id) === String(r.student_id)
+            );
+            
+            // Jika jumpa padanan, papar nama murid. Jika tak jumpa, cuba papar r.names (data lama) atau 'Tiada Nama'
+            const namaMuridSebenar = padananMurid ? padananMurid.name : (r.names || 'Tiada Nama');
+            // ========================================================
+
+            return `
+                <tr class="border-b">
+                    <td class="p-3 font-semibold text-gray-800">${namaMuridSebenar}</td>
+                    <td class="p-3">${r.title || '-'}</td>
+                    <td class="p-3"><span class="bg-yellow-100 text-yellow-800 px-2 rounded text-xs">${r.description || '-'}</span></td>
+                    <td class="p-3">${r.venue || '-'}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteData('records','${r.doc_id}')" class="text-red-400 hover:text-red-600">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
     
     // 3. MEMBINA DROPDOWN MURID (MENYELESAIKAN ISU GURU MEMANAH)
     const sel = document.getElementById('merit-student'); 
-    sel.innerHTML = '<option value="">Pilih Murid...</option>';
-    
-    let students = globalData.students || []; 
-    
-    // KUNCI PENYELESAIAN: Kita buang/komen tapisan unit di bawah khusus untuk fungsi Merit
-    // Supaya Guru Memanah boleh nampak dan pilih murid daripada unit PBSM atau unit-unit lain
-    // if(currentUser.role !== 'admin') students = students.filter(s => currentUser.myUnits.includes(s.unit));
-    
-    students.forEach(s => { 
-        const opt = document.createElement('option'); 
-        opt.value = s.doc_id; 
-        opt.innerText = `${s.name} (${s.unit})`; // Memapar nama sekali dengan unit murid untuk rujukan guru
-        sel.appendChild(opt); 
-    });
+    if (sel) {
+        sel.innerHTML = '<option value="">Pilih Murid...</option>';
+        
+        let students = globalData.students || []; 
+        
+        // Tapisan unit dibuang supaya Guru Memanah boleh nampak murid PBSM/unit lain
+        students.forEach(s => { 
+            const opt = document.createElement('option'); 
+            opt.value = s.doc_id; // Menyimpan ID spesifik unit (Contoh ID Zya Aisy untuk Pengakap/Memanah)
+            opt.innerText = `${s.name} (${s.unit})`; // Memapar nama sekali dengan unit murid
+            sel.appendChild(opt); 
+        });
+    }
     
     // 4. MEMBINA DROPDOWN UNIT
     const selUnit = document.getElementById('merit-unit'); 
-    selUnit.innerHTML = '<option value="">Pilih Unit...</option>';
-    const units = currentUser.role === 'admin' ? [...new Set(globalData.students.map(s=>s.unit))].sort() : currentUser.myUnits;
-    units.forEach(u => { 
-        const opt = document.createElement('option'); 
-        opt.value = u; 
-        opt.innerText = u; 
-        selUnit.appendChild(opt); 
-    });
-}
+    if (selUnit) {
+        selUnit.innerHTML = '<option value="">Pilih Unit...</option>';
+        const units = currentUser.role === 'admin' ? [...new Set(globalData.students.map(s=>s.unit))].sort() : currentUser.myUnits;
+        units.forEach(u => { 
+            const opt = document.createElement('option'); 
+            opt.value = u; 
+            opt.innerText = u; 
+            selUnit.appendChild(opt); 
+        });
+    }
 // --- REPORTS ---
         // --- 1. Fungsi Buka Modal (CREATE NEW) ---
         function openReportModal() { 
