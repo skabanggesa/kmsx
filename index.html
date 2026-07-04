@@ -486,15 +486,31 @@
             if(show) el.classList.remove('hidden'); else el.classList.add('hidden'); 
         }
 
-        async function callApi(action, collection, data = {}) {
+async function callApi(action, collection, data = {}) {
             try {
                 const response = await fetch(WEB_APP_URL, {
-                    method: 'POST', body: JSON.stringify({ action, collection, data: JSON.stringify(data) })
+                    method: 'POST', 
+                    // INI PENYELESAIAN CORS: "Menyamar" sebagai teks biasa
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({ action, collection, data: JSON.stringify(data) })
                 });
-                return await response.json();
+                
+                const result = await response.json();
+                
+                // Pastikan ralat dari Google Sheets benar-benar dikesan
+                if (result.status === "error") {
+                    throw new Error(result.message || "Pangkalan data menolak permintaan.");
+                }
+                
+                return result;
+                
             } catch (error) {
-                alert("Ralat sambungan internet.");
-                return { status: "error" };
+                // Keluarkan ralat yang sebenar (bukan sekadar "Ralat internet")
+                console.error("Ralat Sistem:", error);
+                // Wajib 'throw' supaya fungsi submitMerit terus terhenti!
+                throw error; 
             }
         }
 
