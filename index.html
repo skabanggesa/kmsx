@@ -1305,6 +1305,52 @@ function convertBase64(input) {
             initApp(); 
         }
     }
+
+    // --- FUNGSI KAWALAN HALAMAN (PENTING) ---
+function showPage(id) {
+    // 1. Sorok semua halaman terlebih dahulu
+    document.querySelectorAll('.page-section').forEach(el => {
+        el.classList.add('hidden');
+    });
+    
+    // 2. Papar halaman yang dipilih
+    const selectedPage = document.getElementById('page-' + id);
+    if (selectedPage) {
+        selectedPage.classList.remove('hidden');
+    }
+
+    // 3. Kemas kini tajuk di bahagian atas (Header)
+    const headerTitle = document.getElementById('header-title');
+    if (headerTitle) {
+        const titles = {
+            'dashboard': 'Dashboard Utama',
+            'students': 'Data Murid',
+            'attendance': 'Kehadiran',
+            'reports': 'Laporan Aktiviti',
+            'annual_plans': 'Perancangan Tahunan',
+            'merit': 'Rekod Pencapaian (Merit)',
+            'analysis': 'Cetakan & Analisis',
+            'users': 'Pengurusan Guru'
+        };
+        headerTitle.innerText = titles[id] || 'Sistem KMS';
+    }
+
+    // 4. Laksanakan fungsi 'render' untuk muat semula jadual jika perlu
+    if(id === 'students') if(typeof renderStudentTable === 'function') renderStudentTable();
+    if(id === 'attendance') if(typeof renderAttendanceHistory === 'function') renderAttendanceHistory();
+    if(id === 'reports') if(typeof renderReports === 'function') renderReports();
+    if(id === 'merit') if(typeof renderMerit === 'function') renderMerit();
+    if(id === 'annual_plans') if(typeof renderAnnualPlans === 'function') renderAnnualPlans();
+    if(id === 'users') if(typeof renderUsers === 'function') renderUsers();
+
+    // 5. Tutup sidebar secara automatik jika dibuka pada telefon pintar bimbit (Mobile)
+    if(window.innerWidth < 768) {
+        const sb = document.getElementById('sidebar');
+        const ov = document.getElementById('sidebar-overlay');
+        if (sb) sb.classList.add('-translate-x-full');
+        if (ov) ov.classList.add('hidden');
+    }
+}
     </script>
 </body>
 </html>
