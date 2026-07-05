@@ -280,11 +280,20 @@
                     </div>
                 </div>
 
-                <div id="page-merit" class="page-section hidden space-y-6">
+<div id="page-merit" class="page-section hidden space-y-6">
                     <div class="card border-l-4 border-orange-500">
                         <h3 class="font-bold text-lg mb-4 text-orange-700">Rekod Pencapaian</h3>
                         <form onsubmit="submitMerit(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="md:col-span-2"><label class="text-xs font-bold text-slate-500">Nama Murid</label><select id="merit-student" class="input-field" required><option value="">Pilih...</option></select></div>
+                            
+                            <div class="md:col-span-2" style="position: relative;">
+                                <label class="text-xs font-bold text-slate-500">Nama Murid</label>
+                                <input type="text" id="merit-student-search" class="input-field" placeholder="Taip nama untuk carian..." autocomplete="off" onkeyup="filterStudentList()" required>
+                                
+                                <div id="student-dropdown" style="display: none; position: absolute; z-index: 50; background: white; border: 1px solid #cbd5e1; width: 100%; max-height: 200px; overflow-y: auto; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); margin-top: 2px; border-radius: 4px;">
+                                </div>
+
+                                <input type="hidden" id="merit-student-id">
+                            </div>
                             <input type="text" id="merit-title" class="input-field" placeholder="Acara / Pertandingan" required>
                             <select id="merit-unit" class="input-field" required><option value="">Pilih Unit...</option></select>
                             <select id="merit-desc" class="input-field"><option value="Penyertaan">Penyertaan</option><option value="Johan">Johan</option><option value="Naib Johan">Naib Johan</option><option value="Ketiga">Ketiga</option></select>
@@ -768,15 +777,16 @@ async function callApi(action, collection, data = {}) {
         async function submitMerit(e) {
             e.preventDefault();
             
-            const studentSelect = document.getElementById('merit-student');
-            const venueSelect = document.getElementById('merit-venue'); // <-- Ini ID yang betul!
+            // Dapatkan nilai dari kotak carian (Taip & Tapis)
+            const studentIdInput = document.getElementById('merit-student-id').value;
+            const studentNameInput = document.getElementById('merit-student-search').value;
+            const venueSelect = document.getElementById('merit-venue');
             
             // 1. KAWALAN KESELAMATAN
-            if (!studentSelect || studentSelect.selectedIndex === -1 || studentSelect.value === "") {
-                alert("Sila pilih nama murid terlebih dahulu!");
+            if (!studentIdInput || studentIdInput === "") {
+                alert("Sila pilih nama murid dari senarai carian yang betul!");
                 return;
             }
-            // Semak ID merit-venue
             if (!venueSelect || venueSelect.value === "") {
                 alert("Sila pilih Peringkat Penyertaan!");
                 return;
@@ -788,18 +798,21 @@ async function callApi(action, collection, data = {}) {
                 // 2. HANTAR DATA KE GOOGLE SHEETS
                 await callApi('write', 'records', {
                     folder: 'Merit', 
-                    student_id: studentSelect.value, 
+                    student_id: studentIdInput,     // ID rahsia yang dihantar
+                    names: studentNameInput,        // Nama yang ditaip
                     title: document.getElementById('merit-title').value,
                     unit: document.getElementById('merit-unit').value, 
-                    description: document.getElementById('merit-desc').value, // Johan/Penyertaan
-                    venue: venueSelect.value // Peringkat Sekolah/Daerah
+                    description: document.getElementById('merit-desc').value,
+                    venue: venueSelect.value 
                 });
                 
                 alert("Data merit berjaya disimpan ke pangkalan data (Google Sheets)!");
                 
                 // Kosongkan form selepas berjaya
-                const form = e.target; // Cara lebih pantas merujuk kepada form yang baru di-submit
+                const form = e.target; 
                 if(form) form.reset();
+                // Kosongkan juga ID rahsia
+                document.getElementById('merit-student-id').value = "";
                 
                 await loadAllData();
                 
@@ -810,6 +823,70 @@ async function callApi(action, collection, data = {}) {
                 showLoader(false);
             }
         }
+
+    // --- FUNGSI TAIP & TAPIS (SEARCHABLE DROPDOWN) ---
+
+// Fungsi untuk menjana senarai apabila guru mula menaip
+function filterStudentList() {
+    const searchBox = document.getElementById('merit-student-search');
+    const dropdown = document.getElementById('student-dropdown');
+    const filterText = searchBox.value.toLowerCase();
+    
+    // Kosongkan ID tersembunyi jika guru mengubah teks
+    document.getElementById('merit-student-id').value = ""; 
+    
+    // Jika kotak teks kosong, sembunyikan dropdown
+    if (!filterText) {
+        dropdown.style.display = 'none';
+        return;
+    }
+
+    // Tapis data murid berdasarkan apa yang ditaip
+    const matchedStudents = (globalData.students || []).filter(s => 
+        s.name.toLowerCase().includes(filterText)
+    );
+
+    // Bina senarai elemen HTML untuk dropdown
+    if (matchedStudents.length > 0) {
+        dropdown.innerHTML = matchedStudents.map(s => 
+            `<div style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;" 
+                  onmouseover="this.style.backgroundColor='#f0f8ff'" 
+                  onmouseout="this.style.backgroundColor='white'"
+                  onclick="selectStudent('${s.doc_id}', '${s.name.replace(/'/g, "\\'")}')">
+                  ${s.name}
+            </div>`
+        ).join('');
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.innerHTML = `<div style="padding: 10px; color: red;">Tiada rekod dijumpai</div>`;
+        dropdown.style.display = 'block';
+    }
+}
+
+// Fungsi apabila guru klik pada nama dari senarai dropdown
+function selectStudent(docId, studentName) {
+    const searchBox = document.getElementById('merit-student-search');
+    const hiddenIdBox = document.getElementById('merit-student-id');
+    const dropdown = document.getElementById('student-dropdown');
+
+    // Masukkan data ke dalam kotak masing-masing
+    searchBox.value = studentName;    // Papar nama kepada guru
+    hiddenIdBox.value = docId;        // Simpan ID rahsia untuk pangkalan data
+    
+    // Tutup dropdown
+    dropdown.style.display = 'none';
+}
+
+// Tutup dropdown jika guru klik di luar kotak (Pilihan UX tambahan)
+document.addEventListener('click', function(event) {
+    const searchBox = document.getElementById('merit-student-search');
+    const dropdown = document.getElementById('student-dropdown');
+    if (searchBox && dropdown) {
+        if (!searchBox.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
+    }
+});
 
         function renderMerit() {
             let data = globalData.records || [];
