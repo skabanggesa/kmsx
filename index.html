@@ -721,7 +721,7 @@ async function callApi(action, collection, data = {}) {
             const names = Array.from(document.querySelectorAll('.att-checkbox:checked')).map(cb => cb.value).join(", ");
             if(!names) return alert("Pilih murid dahulu.");
             showLoader(true);
-            await callApi('create', 'attendance', { date: document.getElementById('att-date').value, unit: document.getElementById('att-unit').value, title: document.getElementById('att-title').value, names: names, year: new Date().getFullYear() });
+            await callApi('write', 'attendance', { date: document.getElementById('att-date').value, unit: document.getElementById('att-unit').value, title: document.getElementById('att-title').value, names: names, year: new Date().getFullYear() });
             loadAllData();
         }
         function renderAttendanceHistory() {
