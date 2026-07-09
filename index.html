@@ -704,7 +704,7 @@ async function callApi(action, collection, data = {}) {
             e.preventDefault();
             const data = { name: document.getElementById('std-name').value, gender: document.getElementById('std-gender').value, year: document.getElementById('std-year').value, unit: document.getElementById('std-unit').value };
             showLoader(true);
-            await callApi('create', 'students_master', data);
+            await callApi('write', 'students_master', data);
             closeModal('modal-student'); loadAllData();
         }
 
@@ -767,7 +767,7 @@ async function callApi(action, collection, data = {}) {
         async function submitPlan(e) {
             e.preventDefault();
             const data = { date: document.getElementById('plan-date').value, title: document.getElementById('plan-title').value, unit: document.getElementById('plan-unit').value, status: document.getElementById('plan-status').value, description: document.getElementById('plan-desc').value };
-            showLoader(true); await callApi('create', 'annual_plans', data); loadAllData();
+            showLoader(true); await callApi('write', 'annual_plans', data); loadAllData();
         }
         async function updatePlanStatus(docId, newStatus) {
             showLoader(true); await callApi('update', 'annual_plans', { doc_id: docId, status: newStatus }); loadAllData();
@@ -1046,7 +1046,7 @@ document.addEventListener('click', function(event) {
                 await callApi('update', 'reports', formData);
                 alert("Laporan berjaya dikemaskini!");
             } else {
-                await callApi('create', 'reports', formData);
+                await callApi('write', 'reports', formData);
             }
             closeModal('modal-report'); 
             loadAllData(); 
@@ -1202,7 +1202,7 @@ document.addEventListener('click', function(event) {
                 await callApi('update', 'users', { doc_id: docId, ...userData });
             } else {
                 userData.uid = "u_" + Date.now();
-                await callApi('create', 'users', userData);
+                await callApi('write', 'users', userData);
             }
             closeModal('modal-user'); loadAllData();
         };
@@ -1454,7 +1454,7 @@ function convertBase64(input) {
         function handleCSVImport(input) {
              Papa.parse(input.files[0], { header: true, complete: async function(res) {
                  const rows = res.data.filter(r => r.name).map(r => ({ name: r.name, gender: r.gender||"L", unit: r.unit||"Umum", year: r.year||"1" }));
-                 if(confirm(`Import ${rows.length} murid?`)) { showLoader(true); await callApi('batch_create', 'students_master', rows); showLoader(false); loadAllData(); }
+                 if(confirm(`Import ${rows.length} murid?`)) { showLoader(true); await callApi('batch_write', 'students_master', rows); showLoader(false); loadAllData(); }
              }});
         }
         async function deleteData(col, id) { if(confirm("Padam data ini?")) { showLoader(true); await callApi('delete', col, { doc_id: id }); showLoader(false); loadAllData(); } }
